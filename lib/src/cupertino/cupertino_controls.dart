@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:universal_io/io.dart';
+
 import '/src/animated_play_pause.dart';
 import '/src/center_play_button.dart';
 import '/src/chewie_player.dart';
@@ -362,7 +364,16 @@ class _CupertinoControlsState extends State<CupertinoControls>
 
     return GestureDetector(
       onTap: controller.player.state.playing
-          ? _cancelAndRestartTimer
+          ? () {
+              if (!Platform.isAndroid && !Platform.isIOS) {
+                return;
+              }
+              _hideTimer?.cancel();
+
+              setState(() {
+                notifier.hideStuff = true;
+              });
+            }
           : () {
               _hideTimer?.cancel();
 
