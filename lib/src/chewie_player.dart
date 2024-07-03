@@ -289,6 +289,7 @@ class ChewieController extends ChangeNotifier {
     this.routePageBuilder,
     this.progressIndicatorDelay,
     this.hideControlsTimer = defaultHideControlsTimer,
+    this.showControlsFade = true,
     this.controlsSafeAreaMinimum = EdgeInsets.zero,
   }) : assert(
           playbackSpeeds.every((speed) => speed > 0),
@@ -515,6 +516,9 @@ class ChewieController extends ChangeNotifier {
 
   /// Defines the [Duration] before the video controls are hidden. By default, this is set to three seconds.
   final Duration hideControlsTimer;
+
+  /// Defines if the video is faded when controls are visible.
+  final bool showControlsFade;
 
   /// Defines the set of allowed playback speeds user can change
   final List<double> playbackSpeeds;
