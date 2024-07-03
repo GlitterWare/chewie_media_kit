@@ -91,6 +91,9 @@ class _CupertinoControlsState extends State<CupertinoControls>
 
     return MouseRegion(
       onHover: (_) => _cancelAndRestartTimer(),
+      cursor: notifier.hideStuff
+          ? SystemMouseCursors.none
+          : SystemMouseCursors.basic,
       child: GestureDetector(
         onTap: () => _cancelAndRestartTimer(),
         child: AbsorbPointer(

@@ -82,6 +82,9 @@ class _MaterialDesktopControlsState extends State<MaterialDesktopControls>
       onHover: (_) {
         _cancelAndRestartTimer();
       },
+      cursor: notifier.hideStuff
+          ? SystemMouseCursors.none
+          : SystemMouseCursors.basic,
       child: GestureDetector(
         onTap: () => _cancelAndRestartTimer(),
         child: AbsorbPointer(
