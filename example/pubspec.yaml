@@ -8,7 +8,7 @@ environment:
   flutter: ">=3.19.0"
 
 dependencies:
-  chewie:
+  chewie_media_kit:
     path: ../
   flutter:
     sdk: flutter

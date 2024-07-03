@@ -2,20 +2,20 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:chewie/src/animated_play_pause.dart';
-import 'package:chewie/src/center_play_button.dart';
-import 'package:chewie/src/chewie_player.dart';
-import 'package:chewie/src/chewie_progress_colors.dart';
-import 'package:chewie/src/cupertino/cupertino_progress_bar.dart';
-import 'package:chewie/src/cupertino/widgets/cupertino_options_dialog.dart';
-import 'package:chewie/src/helpers/utils.dart';
-import 'package:chewie/src/models/option_item.dart';
-import 'package:chewie/src/models/subtitle_model.dart';
-import 'package:chewie/src/notifiers/index.dart';
+import '/src/animated_play_pause.dart';
+import '/src/center_play_button.dart';
+import '/src/chewie_player.dart';
+import '/src/chewie_progress_colors.dart';
+import '/src/cupertino/cupertino_progress_bar.dart';
+import '/src/cupertino/widgets/cupertino_options_dialog.dart';
+import '/src/helpers/utils.dart';
+import '/src/models/option_item.dart';
+import '/src/models/subtitle_model.dart';
+import '/src/notifiers/index.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
-import 'package:video_player/video_player.dart';
 
 class CupertinoControls extends StatefulWidget {
   const CupertinoControls({
@@ -38,7 +38,6 @@ class CupertinoControls extends StatefulWidget {
 class _CupertinoControlsState extends State<CupertinoControls>
     with SingleTickerProviderStateMixin {
   late PlayerNotifier notifier;
-  late VideoPlayerValue _latestValue;
   double? _latestVolume;
   Timer? _hideTimer;
   final marginSize = 5.0;
@@ -50,7 +49,8 @@ class _CupertinoControlsState extends State<CupertinoControls>
   Timer? _bufferingDisplayTimer;
   bool _displayBufferingIndicator = false;
   double selectedSpeed = 1.0;
-  late VideoPlayerController controller;
+  late VideoController controller;
+  StreamSubscription<Duration>? _subscription;
 
   // We know that _chewieController is set in didChangeDependencies
   ChewieController get chewieController => _chewieController!;
@@ -64,6 +64,7 @@ class _CupertinoControlsState extends State<CupertinoControls>
 
   @override
   Widget build(BuildContext context) {
+    /*
     if (_latestValue.hasError) {
       return chewieController.errorBuilder != null
           ? chewieController.errorBuilder!(
@@ -78,6 +79,7 @@ class _CupertinoControlsState extends State<CupertinoControls>
               ),
             );
     }
+    */
 
     final backgroundColor = widget.backgroundColor;
     final iconColor = widget.iconColor;
@@ -134,7 +136,7 @@ class _CupertinoControlsState extends State<CupertinoControls>
   }
 
   void _dispose() {
-    controller.removeListener(_updateState);
+    _subscription?.cancel();
     _hideTimer?.cancel();
     _expandCollapseTimer?.cancel();
     _initTimer?.cancel();
@@ -182,7 +184,7 @@ class _CupertinoControlsState extends State<CupertinoControls>
                   chewieController.optionsTranslation?.cancelButtonText,
             ),
           );
-          if (_latestValue.isPlaying) {
+          if (controller.player.state.playing) {
             _startHideTimer();
           }
         }
@@ -346,12 +348,12 @@ class _CupertinoControlsState extends State<CupertinoControls>
   }
 
   Widget _buildHitArea() {
-    final bool isFinished = _latestValue.position >= _latestValue.duration;
+    final bool isFinished = controller.player.state.completed;
     final bool showPlayButton =
-        widget.showPlayButton && !_latestValue.isPlaying && !_dragging;
+        widget.showPlayButton && !controller.player.state.playing && !_dragging;
 
     return GestureDetector(
-      onTap: _latestValue.isPlaying
+      onTap: controller.player.state.playing
           ? _cancelAndRestartTimer
           : () {
               _hideTimer?.cancel();
@@ -364,7 +366,7 @@ class _CupertinoControlsState extends State<CupertinoControls>
         backgroundColor: widget.backgroundColor,
         iconColor: widget.iconColor,
         isFinished: isFinished,
-        isPlaying: controller.value.isPlaying,
+        isPlaying: controller.player.state.playing,
         show: showPlayButton,
         onPressed: _playPause,
       ),
@@ -372,7 +374,7 @@ class _CupertinoControlsState extends State<CupertinoControls>
   }
 
   GestureDetector _buildMuteButton(
-    VideoPlayerController controller,
+    VideoController controller,
     Color backgroundColor,
     Color iconColor,
     double barHeight,
@@ -382,11 +384,11 @@ class _CupertinoControlsState extends State<CupertinoControls>
       onTap: () {
         _cancelAndRestartTimer();
 
-        if (_latestValue.volume == 0) {
-          controller.setVolume(_latestVolume ?? 0.5);
+        if (controller.player.state.volume == 0) {
+          controller.player.setVolume(_latestVolume ?? 0.5);
         } else {
-          _latestVolume = controller.value.volume;
-          controller.setVolume(0.0);
+          _latestVolume = controller.player.state.volume;
+          controller.player.setVolume(0.0);
         }
       },
       child: AnimatedOpacity(
@@ -405,7 +407,9 @@ class _CupertinoControlsState extends State<CupertinoControls>
                   right: buttonPadding,
                 ),
                 child: Icon(
-                  _latestValue.volume > 0 ? Icons.volume_up : Icons.volume_off,
+                  controller.player.state.volume > 0
+                      ? Icons.volume_up
+                      : Icons.volume_off,
                   color: iconColor,
                   size: 16,
                 ),
@@ -418,7 +422,7 @@ class _CupertinoControlsState extends State<CupertinoControls>
   }
 
   GestureDetector _buildPlayPause(
-    VideoPlayerController controller,
+    VideoController controller,
     Color iconColor,
     double barHeight,
   ) {
@@ -433,14 +437,14 @@ class _CupertinoControlsState extends State<CupertinoControls>
         ),
         child: AnimatedPlayPause(
           color: widget.iconColor,
-          playing: controller.value.isPlaying,
+          playing: controller.player.state.playing,
         ),
       ),
     );
   }
 
   Widget _buildPosition(Color iconColor) {
-    final position = _latestValue.position;
+    final position = controller.player.state.position;
 
     return Padding(
       padding: const EdgeInsets.only(right: 12.0),
@@ -455,7 +459,8 @@ class _CupertinoControlsState extends State<CupertinoControls>
   }
 
   Widget _buildRemaining(Color iconColor) {
-    final position = _latestValue.duration - _latestValue.position;
+    final position =
+        controller.player.state.duration - controller.player.state.position;
 
     return Padding(
       padding: const EdgeInsets.only(right: 12.0),
@@ -539,7 +544,7 @@ class _CupertinoControlsState extends State<CupertinoControls>
   }
 
   GestureDetector _buildSpeedButton(
-    VideoPlayerController controller,
+    VideoController controller,
     Color iconColor,
     double barHeight,
   ) {
@@ -553,17 +558,17 @@ class _CupertinoControlsState extends State<CupertinoControls>
           useRootNavigator: chewieController.useRootNavigator,
           builder: (context) => _PlaybackSpeedDialog(
             speeds: chewieController.playbackSpeeds,
-            selected: _latestValue.playbackSpeed,
+            selected: controller.player.state.rate,
           ),
         );
 
         if (chosenSpeed != null) {
-          controller.setPlaybackSpeed(chosenSpeed);
+          controller.player.setRate(chosenSpeed);
 
           selectedSpeed = chosenSpeed;
         }
 
-        if (_latestValue.isPlaying) {
+        if (controller.player.state.playing) {
           _startHideTimer();
         }
       },
@@ -640,11 +645,12 @@ class _CupertinoControlsState extends State<CupertinoControls>
 
   Future<void> _initialize() async {
     _subtitleOn = chewieController.subtitle?.isNotEmpty ?? false;
-    controller.addListener(_updateState);
+    _subscription =
+        controller.player.stream.position.listen((_) => _updateState());
 
     _updateState();
 
-    if (controller.value.isPlaying || chewieController.autoPlay) {
+    if (controller.player.state.playing || chewieController.autoPlay) {
       _startHideTimer();
     }
 
@@ -726,26 +732,19 @@ class _CupertinoControlsState extends State<CupertinoControls>
   }
 
   void _playPause() {
-    final isFinished = _latestValue.position >= _latestValue.duration;
+    final isFinished = controller.player.state.completed;
 
     setState(() {
-      if (controller.value.isPlaying) {
+      if (controller.player.state.playing) {
         notifier.hideStuff = false;
         _hideTimer?.cancel();
-        controller.pause();
+        controller.player.pause();
       } else {
         _cancelAndRestartTimer();
-
-        if (!controller.value.isInitialized) {
-          controller.initialize().then((_) {
-            controller.play();
-          });
-        } else {
-          if (isFinished) {
-            controller.seekTo(Duration.zero);
-          }
-          controller.play();
+        if (isFinished) {
+          controller.player.seek(Duration.zero);
         }
+        controller.player.play();
       }
     });
   }
@@ -754,25 +753,28 @@ class _CupertinoControlsState extends State<CupertinoControls>
     _cancelAndRestartTimer();
     final beginning = Duration.zero.inMilliseconds;
     final skip =
-        (_latestValue.position - const Duration(seconds: 15)).inMilliseconds;
-    await controller.seekTo(Duration(milliseconds: math.max(skip, beginning)));
+        (controller.player.state.position - const Duration(seconds: 15))
+            .inMilliseconds;
+    await controller.player
+        .seek(Duration(milliseconds: math.max(skip, beginning)));
     // Restoring the video speed to selected speed
     // A delay of 1 second is added to ensure a smooth transition of speed after reversing the video as reversing is an asynchronous function
     Future.delayed(const Duration(milliseconds: 1000), () {
-      controller.setPlaybackSpeed(selectedSpeed);
+      controller.player.setRate(selectedSpeed);
     });
   }
 
   Future<void> _skipForward() async {
     _cancelAndRestartTimer();
-    final end = _latestValue.duration.inMilliseconds;
+    final end = controller.player.state.duration.inMilliseconds;
     final skip =
-        (_latestValue.position + const Duration(seconds: 15)).inMilliseconds;
-    await controller.seekTo(Duration(milliseconds: math.min(skip, end)));
+        (controller.player.state.position + const Duration(seconds: 15))
+            .inMilliseconds;
+    await controller.player.seek(Duration(milliseconds: math.min(skip, end)));
     // Restoring the video speed to selected speed
     // A delay of 1 second is added to ensure a smooth transition of speed after forwarding the video as forwaring is an asynchronous function
     Future.delayed(const Duration(milliseconds: 1000), () {
-      controller.setPlaybackSpeed(selectedSpeed);
+      controller.player.setRate(selectedSpeed);
     });
   }
 
@@ -799,7 +801,7 @@ class _CupertinoControlsState extends State<CupertinoControls>
 
     // display the progress bar indicator only after the buffering delay if it has been set
     if (chewieController.progressIndicatorDelay != null) {
-      if (controller.value.isBuffering) {
+      if (controller.player.state.buffering) {
         _bufferingDisplayTimer ??= Timer(
           chewieController.progressIndicatorDelay!,
           _bufferingTimerTimeout,
@@ -810,12 +812,11 @@ class _CupertinoControlsState extends State<CupertinoControls>
         _displayBufferingIndicator = false;
       }
     } else {
-      _displayBufferingIndicator = controller.value.isBuffering;
+      _displayBufferingIndicator = controller.player.state.buffering;
     }
 
     setState(() {
-      _latestValue = controller.value;
-      _subtitlesPosition = controller.value.position;
+      _subtitlesPosition = controller.player.state.position;
     });
   }
 }

@@ -1,16 +1,17 @@
 import 'dart:async';
 
-import 'package:chewie/src/chewie_progress_colors.dart';
-import 'package:chewie/src/models/option_item.dart';
-import 'package:chewie/src/models/options_translation.dart';
-import 'package:chewie/src/models/subtitle_model.dart';
-import 'package:chewie/src/notifiers/player_notifier.dart';
-import 'package:chewie/src/player_with_controls.dart';
-import 'package:flutter/foundation.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
+
+import '/src/chewie_progress_colors.dart';
+import '/src/models/option_item.dart';
+import '/src/models/options_translation.dart';
+import '/src/models/subtitle_model.dart';
+import '/src/notifiers/player_notifier.dart';
+import '/src/player_with_controls.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 typedef ChewieRoutePageBuilder = Widget Function(
@@ -168,10 +169,6 @@ class ChewieState extends State<Chewie> {
       rootNavigator: widget.controller.useRootNavigator,
     ).push(route);
 
-    if (kIsWeb) {
-      _reInitializeControllers();
-    }
-
     _isFullScreen = false;
     widget.controller.exitFullScreen();
 
@@ -189,9 +186,10 @@ class ChewieState extends State<Chewie> {
   }
 
   void onEnterFullScreen() {
-    final videoWidth = widget.controller.videoPlayerController.value.size.width;
-    final videoHeight =
-        widget.controller.videoPlayerController.value.size.height;
+    final int videoWidth =
+        widget.controller.videoPlayerController.player.state.width ?? 0;
+    final int videoHeight =
+        widget.controller.videoPlayerController.player.state.height ?? 0;
 
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
 
@@ -238,18 +236,6 @@ class ChewieState extends State<Chewie> {
       }
     }
   }
-
-  ///When viewing full screen on web, returning from full screen causes original video to lose the picture.
-  ///We re initialise controllers for web only when returning from full screen
-  void _reInitializeControllers() {
-    final prevPosition = widget.controller.videoPlayerController.value.position;
-    widget.controller.videoPlayerController.initialize().then((_) async {
-      widget.controller._initialize();
-      widget.controller.videoPlayerController.seekTo(prevPosition);
-      await widget.controller.videoPlayerController.play();
-      widget.controller.videoPlayerController.pause();
-    });
-  }
 }
 
 /// The ChewieController is used to configure and drive the Chewie Player
@@ -261,7 +247,7 @@ class ChewieState extends State<Chewie> {
 /// changes, such as entering and exiting full screen mode. To listen for
 /// changes to the playback, such as a change to the seek position of the
 /// player, please use the standard information provided by the
-/// `VideoPlayerController`.
+/// `VideoController`.
 class ChewieController extends ChangeNotifier {
   ChewieController({
     required this.videoPlayerController,
@@ -312,7 +298,7 @@ class ChewieController extends ChangeNotifier {
   }
 
   ChewieController copyWith({
-    VideoPlayerController? videoPlayerController,
+    VideoController? videoPlayerController,
     OptionsTranslation? optionsTranslation,
     double? aspectRatio,
     bool? autoInitialize,
@@ -444,7 +430,7 @@ class ChewieController extends ChangeNotifier {
   Subtitles? subtitle;
 
   /// The controller for the video you want to play
-  final VideoPlayerController videoPlayerController;
+  final VideoController videoPlayerController;
 
   /// Initialize the Video on Startup. This will prep the video for playback.
   final bool autoInitialize;
@@ -566,37 +552,36 @@ class ChewieController extends ChangeNotifier {
 
   bool get isFullScreen => _isFullScreen;
 
-  bool get isPlaying => videoPlayerController.value.isPlaying;
+  bool get isPlaying => videoPlayerController.player.state.playing;
+
+  StreamSubscription<Duration>? _fullScreenSubscription;
 
   Future<dynamic> _initialize() async {
-    await videoPlayerController.setLooping(looping);
-
-    if ((autoInitialize || autoPlay) &&
-        !videoPlayerController.value.isInitialized) {
-      await videoPlayerController.initialize();
-    }
+    await videoPlayerController.player
+        .setPlaylistMode(looping ? PlaylistMode.loop : PlaylistMode.none);
 
     if (autoPlay) {
       if (fullScreenByDefault) {
         enterFullScreen();
       }
 
-      await videoPlayerController.play();
+      await videoPlayerController.player.play();
     }
 
     if (startAt != null) {
-      await videoPlayerController.seekTo(startAt!);
+      await videoPlayerController.player.seek(startAt!);
     }
 
     if (fullScreenByDefault) {
-      videoPlayerController.addListener(_fullScreenListener);
+      _fullScreenSubscription = videoPlayerController.player.stream.position
+          .listen((_) => _fullScreenListener());
     }
   }
 
   Future<void> _fullScreenListener() async {
-    if (videoPlayerController.value.isPlaying && !_isFullScreen) {
+    if (videoPlayerController.player.state.playing && !_isFullScreen) {
       enterFullScreen();
-      videoPlayerController.removeListener(_fullScreenListener);
+      _fullScreenSubscription?.cancel();
     }
   }
 
@@ -620,24 +605,25 @@ class ChewieController extends ChangeNotifier {
   }
 
   Future<void> play() async {
-    await videoPlayerController.play();
+    await videoPlayerController.player.play();
   }
 
   // ignore: avoid_positional_boolean_parameters
   Future<void> setLooping(bool looping) async {
-    await videoPlayerController.setLooping(looping);
+    await videoPlayerController.player
+        .setPlaylistMode(looping ? PlaylistMode.loop : PlaylistMode.none);
   }
 
   Future<void> pause() async {
-    await videoPlayerController.pause();
+    await videoPlayerController.player.pause();
   }
 
   Future<void> seekTo(Duration moment) async {
-    await videoPlayerController.seekTo(moment);
+    await videoPlayerController.player.seek(moment);
   }
 
   Future<void> setVolume(double volume) async {
-    await videoPlayerController.setVolume(volume);
+    await videoPlayerController.player.setVolume(volume);
   }
 
   void setSubtitle(List<Subtitle> newSubtitle) {
