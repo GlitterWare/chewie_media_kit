@@ -22,12 +22,14 @@ class CupertinoControls extends StatefulWidget {
     required this.backgroundColor,
     required this.iconColor,
     this.showPlayButton = true,
+    this.showPlayButtonWhilePlaying = false,
     super.key,
   });
 
   final Color backgroundColor;
   final Color iconColor;
   final bool showPlayButton;
+  final bool showPlayButtonWhilePlaying;
 
   @override
   State<StatefulWidget> createState() {
@@ -350,7 +352,10 @@ class _CupertinoControlsState extends State<CupertinoControls>
   Widget _buildHitArea() {
     final bool isFinished = controller.player.state.completed;
     final bool showPlayButton =
-        widget.showPlayButton && !controller.player.state.playing && !_dragging;
+        (widget.showPlayButtonWhilePlaying && !notifier.hideStuff) ||
+            (widget.showPlayButton &&
+                !controller.player.state.playing &&
+                !_dragging);
 
     return GestureDetector(
       onTap: controller.player.state.playing
