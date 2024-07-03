@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:universal_io/io.dart';
 
 import '/src/chewie_progress_colors.dart';
 import '/src/models/option_item.dart';
@@ -183,6 +184,9 @@ class ChewieState extends State<Chewie> {
     SystemChrome.setPreferredOrientations(
       widget.controller.deviceOrientationsAfterFullScreen,
     );
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      if (context.mounted) defaultExitNativeFullscreen();
+    }
   }
 
   void onEnterFullScreen() {
@@ -191,6 +195,9 @@ class ChewieState extends State<Chewie> {
     final int videoHeight =
         widget.controller.videoPlayerController.player.state.height ?? 0;
 
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      if (context.mounted) defaultEnterNativeFullscreen();
+    }
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
 
     // if (widget.controller.systemOverlaysOnEnterFullScreen != null) {
