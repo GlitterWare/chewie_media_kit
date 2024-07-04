@@ -192,6 +192,9 @@ class _ProgressBarPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final baseOffset = size.height / 2 - barHeight / 2;
+    if (baseOffset.isNaN) return;
+    if (barHeight.isNaN) return;
+    if (size.width.isNaN) return;
 
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -209,6 +212,7 @@ class _ProgressBarPainter extends CustomPainter {
         value.player.state.duration.inMilliseconds;
     final double playedPart =
         playedPartPercent > 1 ? size.width : playedPartPercent * size.width;
+    if (playedPart.isNaN) return;
     /*
     for (final DurationRange range in value.player.state.duration) {
       final double start =
