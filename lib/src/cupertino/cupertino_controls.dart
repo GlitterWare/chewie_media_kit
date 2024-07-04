@@ -366,6 +366,11 @@ class _CupertinoControlsState extends State<CupertinoControls>
       onTap: controller.player.state.playing
           ? () {
               if (!Platform.isAndroid && !Platform.isIOS) {
+                setState(() {
+                  notifier.hideStuff = false;
+                  _hideTimer?.cancel();
+                  controller.player.pause();
+                });
                 return;
               }
               _hideTimer?.cancel();
@@ -375,6 +380,10 @@ class _CupertinoControlsState extends State<CupertinoControls>
               });
             }
           : () {
+              if (!Platform.isAndroid && !Platform.isIOS) {
+                controller.player.play();
+                return;
+              }
               _hideTimer?.cancel();
 
               setState(() {
