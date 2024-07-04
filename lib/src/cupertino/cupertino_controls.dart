@@ -363,6 +363,12 @@ class _CupertinoControlsState extends State<CupertinoControls>
                 !_dragging);
 
     return GestureDetector(
+      onDoubleTap: () {
+        if (!Platform.isAndroid && !Platform.isIOS) {
+          chewieController.toggleFullScreen();
+          return;
+        }
+      },
       onTap: controller.player.state.playing
           ? () {
               if (!Platform.isAndroid && !Platform.isIOS) {
